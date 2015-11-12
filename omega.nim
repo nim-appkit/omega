@@ -434,12 +434,18 @@ method onStart(this: TerminalReporter, handler: Handler) =
   echo("Testing $1 suites with $2 tests." % [handler.suites.len().`$`, handler.testCount().`$`])
 
 method onFinish(this: TerminalReporter, res: OmegaResult) =
-  echo("\nFinished all tests in $1 seconds." % [res.timeTaken.`$`])
+  echo("\n" & "#".repeat(80) & "\n# Testing finished in " & res.timeTaken.`$` & " seconds.")
+  echo("#")
+
   terminal.styledEcho(
-    "Result: ", 
-    terminal.fgGreen, res.succeeded.`$`, " ok ", 
-    terminal.fgBlue, res.skipped.`$`, " skipped ",
-    terminal.fgRed, res.failed.`$`, " failed")
+    "#\tSucceeded: ", terminal.fgGreen, res.succeeded.`$`, "\n",
+    terminal.fgWhite, "#\tSkipped: ", terminal.fgBlue, res.skipped.`$`, "\n",
+    terminal.fgWhite, "#\tFailed: ", terminal.fgRed, res.failed.`$`
+  )
+
+  echo("#")
+
+  echo("#".repeat(80))
 
 # procs.
 
