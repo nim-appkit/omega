@@ -3,6 +3,8 @@ from strutils import join, `%`, repeat, splitLines
 from times import epochTime
 import macros
 
+import alpha
+
 type
   SkipError = object of Exception
     discard
