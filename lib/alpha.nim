@@ -7,6 +7,121 @@ import tables
 import sets
 from os import nil
 
+method `$`(obj: ref RootObj): string =
+  name(type(obj))
+
+method `$`(a: Any): string =
+  case a.kind
+  of akBool:
+    return $(a.getBool())
+  of akChar:
+    return $(a.getChar())
+  of akInt, akInt8, akInt16, akInt32, akInt64:
+    return $(a.getBiggestInt())
+  of akUint:
+    return $(a.getUint())
+  of akUint8:
+    return $(a.getUint8())
+  of akUint16:
+    return $(a.getUint16())
+  of akUint32:
+    return $(a.getUint32())
+  of akUint64:
+    return $(a.getUint64())
+  of akFloat, akFloat32, akFloat64:
+    return $(a.getBiggestFloat())
+  of akString:
+    return $(a.getString())
+  of akCString:
+    return $(a.getCString())
+  else:
+    return "Any(" & $(a.kind) & ")"
+
+discard """
+proc toString[T](obj: T): string =
+  result = name(type(obj))
+
+  var v = obj
+  var a = toAny(obj)
+  if a.kind == akRef or a.kind == akPointer:
+    if a.isNil(): return "nil"
+    a = a[]
+  
+  if a.kind == akObject:
+    result &= "("
+    for key, value in a.fields:
+      result &= key & ": " & $value & " "
+    result[result.len() - 1] = ')'
+
+# Generic fallback toString $ operator.
+method `$`[T](obj: T): string =
+  result = name(type(obj))
+  when T == AnyKind:
+    return system.`$`(obj)
+
+  toString(obj)
+"""
+
+# Equality operator for any types.
+proc `==`(a: var Any, b: var Any): bool =
+  if a.kind == akPointer or a.kind == akRef:
+    if a.isNil():
+      return b.isNil()
+    a = a[]
+
+  if b.kind == akPointer or b.kind == akRef:
+    if b.isNil():
+      return a.isNil()
+    b = b[]
+
+  if a.kind != b.kind:
+    return false
+
+  case a.kind
+  of akBool:
+    return a.getBool() == b.getBool()
+  of akChar:
+    return a.getChar() == b.getChar()
+  of akInt, akInt8, akInt16, akInt32, akInt64:
+    return a.getBiggestInt() == b.getBiggestInt()
+  of akUint:
+    return a.getUint() == b.getUint()
+  of akUint8:
+    return a.getUint8() == b.getUint8()
+  of akUint16:
+    return a.getUint16() == b.getUint16()
+  of akUint32:
+    return a.getUint32() == b.getUint32()
+  of akUint64:
+    return a.getUint64() == b.getUint32()
+  of akFloat, akFloat32, akFloat64:
+    return a.getBiggestFloat() == b.getBiggestFloat()
+  of akString:
+    return a.getString() == b.getString()
+  of akCString:
+    return a.getCString() == b.getCString()
+
+  #of akSequence, akArray:
+  #  if a.isNil() or b.isNil():
+  #    return a.isNil() == b.isNil()
+  #  if a.len() != b.len():
+  #    return false
+
+    # Compare elements.
+  #  var i = 0
+  #  while i < a.len():
+  #    if not(a[i] == b[i]):
+  #      return false
+
+  #  return true
+
+  else:
+    raise newException(Exception, "Comparison for any kind not implemented: " & system.`$`(a.kind))
+
+###############
+# AlphaError. #
+###############
+
 type AlphaError = object of Exception
   expected: string
   explanation: string
@@ -14,28 +129,20 @@ type AlphaError = object of Exception
   lineinfo: string
 
 proc newAlphaErr[A, B](expected: A, explanation: string, actual: B, lineinfo: string): ref AlphaError =
-  var msg = "Expected $1 $2 $3." % [$expected, $explanation, $actual]
+  var expected = $expected
+  var actual = $actual
+
+  var msg = "Expected $1 $2 $3." % [$expected, explanation, $actual]
   var e = newException(AlphaError, msg)
   e.expected = $expected
-  e.explanation = $explanation
+  e.explanation = explanation
   e.actual = $actual
   e.lineinfo = lineinfo
   return e
 
-type ValueKind = enum
-  VAL_ANY
-  VAL_STR
-  VAL_NUM
-
-type Value = ref object of RootObj
-  case kind: ValueKind
-  of VAL_ANY:
-    anyVal: Any
-  of VAL_STR:
-    strVal: string
-  of VAL_NUM:
-    numVal: BiggestFloat
-
+#############
+# Matchers. #
+#############
 
 type Matcher = ref object of RootObj
   kind: string
@@ -308,6 +415,36 @@ method match[A, B, C](m: KeyValueMatcher, expected: A, actual: tuple[key: B, val
 proc haveKeyWithValue[A, B](key: A, value: B): tuple[val: tuple[key: A, value: B], matcher: KeyValueMatcher] =
   return ((key, value), KeyValueMatcher())
 
+#####################
+# PropValueMatcher. #
+#####################
+
+type PropValueMatcher = ref object of Matcher
+  discard
+
+method explain(m: PropValueMatcher): string = 
+  "have property with value"
+
+method match[A, B](m: PropValueMatcher, expected: var A, actual: tuple[key: string, value: B]): bool =
+  var a = toAny(expected)
+  var value = actual.value
+  var valueA = toAny(value)
+
+  # De-reference pointers.
+  if a.kind == akRef or a.kind == akPointer:
+    if a.isNil:
+      return false
+    a = a[]
+
+  if a.kind != akObject:
+    return false
+  
+  var propVal = a[actual.key]
+  return propVal == valueA
+
+proc havePropValue[A](key: string, value: A): tuple[val: tuple[key: string, value: A], matcher: PropValueMatcher] =
+  return ((key, value), PropValueMatcher())
+
 ###################
 # Matching procs. #
 ###################
@@ -338,5 +475,9 @@ macro should(expected: expr, matchData: expr): stmt =
 
 macro shouldNot(expected: expr, matchData: expr): stmt =
   macroBuilder(expected, matchData, reverse = true)
-
-#22.shouldNot(equal(23))
+  
+type A = ref object of RootObj
+  key: string
+  
+var a = A(key: "val")
+a.should(havePropValue("key", "val"))
