@@ -54,6 +54,8 @@ proc buildFile(paths: openArray[string], targetPath: string) =
   if not open(buildFile, targetPath, fmWrite):
     raise newException(ValidationError, "Could not open file $1 for writing." % [targetPath])
 
+  buildFile.write("import alpha, omega\n")
+
   for filePath in paths:
     buildFile.write("#".repeat(80) & "\n# " & filePath & "\n" & "#".repeat(80) & "\n\n")
 
@@ -68,6 +70,16 @@ proc buildFile(paths: openArray[string], targetPath: string) =
           continue
         else:
           isMainModule = false
+      if line.string.contains("omega.run"):
+        continue
+      if line.string.contains("import alpha"):
+        continue
+      if line.string.contains("import omega"):
+        continue
+      if line.string.contains("from alpha"):
+        continue
+      if line.string.contains("from omega"):
+        continue
 
       lineIndex += 1
       writeLine(buildFile, line & " #" % filePath & ":" & $lineIndex)
@@ -79,10 +91,8 @@ proc buildFile(paths: openArray[string], targetPath: string) =
 proc prepareRun(c: OmegaConfig) =
   # Set up logging.
   var consoleL = logging.newConsoleLogger()
-  var fileL = logging.newFileLogger(os.joinPath(c.runDir, "omega.log"), fmtStr = logging.verboseFmtStr)
   logging.addHandler(consoleL)
-  logging.addHandler(fileL)
-
+  
   # Find nim executable. 
   let nimCmdPath = os.findExe("nim")
   if nimCmdPath == "":
@@ -102,6 +112,7 @@ proc prepareRun(c: OmegaConfig) =
 
   if c.debug: debug("Starting test with ID ", c.runId)
 
+
   # Determine and create the run directory.
   if c.runDir == "":
     c.runDir = os.joinPath(runDir, c.runId)
@@ -109,6 +120,10 @@ proc prepareRun(c: OmegaConfig) =
     os.createDir(c.runDir)
 
   if c.debug: debug("Using run directory ", c.runDir)
+
+  # Add file log.
+  var fileL = logging.newFileLogger(os.joinPath(c.runDir, "omega.log"), fmtStr = logging.verboseFmtStr)
+  logging.addHandler(fileL)
 
   var allFiles = newSeq[string]()
 

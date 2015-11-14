@@ -122,21 +122,21 @@ proc `==`(a: var Any, b: var Any): bool =
 # AlphaError. #
 ###############
 
-type AlphaError = object of Exception
-  expected: string
-  explanation: string
-  actual: string
-  lineinfo: string
+type AlphaError* = object of Exception
+  actual*: string
+  explanation*: string
+  expected*: string
+  lineinfo*: string
 
-proc newAlphaErr[A, B](expected: A, explanation: string, actual: B, lineinfo: string): ref AlphaError =
-  var expected = $expected
+proc newAlphaErr[A, B](actual: A, explanation: string, expected: B, lineinfo: string): ref AlphaError =
   var actual = $actual
+  var expected = $expected
 
-  var msg = "Expected $1 $2 $3." % [$expected, explanation, $actual]
+  var msg = "Expected\n    $1\n$2\n    $3\n\n@$4" % [$actual, explanation, $expected, lineinfo]
   var e = newException(AlphaError, msg)
-  e.expected = $expected
-  e.explanation = explanation
   e.actual = $actual
+  e.explanation = explanation
+  e.expected = $expected
   e.lineinfo = lineinfo
   return e
 
@@ -166,7 +166,7 @@ method explain(m: EqualsMatcher): string =
 method match[A, B](m: EqualsMatcher, expected: A, actual: B): bool =
   return expected == actual
 
-proc equal[T](val: T): tuple[val: T, matcher: EqualsMatcher] =
+proc equal*[T](val: T): tuple[val: T, matcher: EqualsMatcher] =
   return (val, EqualsMatcher(kind: "equals"))
 
 ####################
@@ -182,7 +182,7 @@ method explain(m: NilMatcher): string =
 method match[A](m: NilMatcher, expected: A, actual: bool): bool =
   return expected == nil
 
-proc beNil(): tuple[val: bool, matcher: NilMatcher] =
+proc beNil*(): tuple[val: bool, matcher: NilMatcher] =
   return (false, NilMatcher())
 
 ################
@@ -199,7 +199,7 @@ method match[A](m: ZeroMatcher, expected: A, actual: bool): bool =
   var n = new(A)
   return expected == n[]
 
-proc beZero(): tuple[val: bool, matcher: ZeroMatcher] =
+proc beZero*(): tuple[val: bool, matcher: ZeroMatcher] =
   return (false, ZeroMatcher())
 
 ################
@@ -215,7 +215,7 @@ method explain(m: TrueMatcher): string =
 method match[A](m: TrueMatcher, expected: A, actual: bool): bool =
   return expected == true
 
-proc beTrue(): tuple[val: bool, matcher: TrueMatcher] =
+proc beTrue*(): tuple[val: bool, matcher: TrueMatcher] =
   return (false, TrueMatcher())
 
 #################
@@ -231,7 +231,7 @@ method explain(m: FalseMatcher): string =
 method match[A](m: FalseMatcher, expected: A, actual: bool): bool =
   return expected != true
 
-proc beFalse(): tuple[val: bool, matcher: FalseMatcher] =
+proc beFalse*(): tuple[val: bool, matcher: FalseMatcher] =
   return (false, FalseMatcher())
 
 ####################
@@ -249,7 +249,7 @@ method match[A](m: ContainsMatcher, expected: openArray[A], actual: A): bool =
     return false
   return expected.contains(actual)
 
-proc contain[T](val: T): tuple[val: T, matcher: ContainsMatcher] =
+proc contain*[T](val: T): tuple[val: T, matcher: ContainsMatcher] =
   return (val, ContainsMatcher())
 
 ################
@@ -273,7 +273,7 @@ method match(m: FileMatcher, expected: var string, actual: bool): bool =
 
   return os.fileExists(expected)
 
-proc beAFile(): tuple[val: bool, matcher: FileMatcher] =
+proc beAFile*(): tuple[val: bool, matcher: FileMatcher] =
   return (false, FileMatcher())
 
 ###############
@@ -297,7 +297,7 @@ method match(m: DirMatcher, expected: var string, actual: bool): bool =
 
   return os.dirExists(expected)
 
-proc beADir(): tuple[val: bool, matcher: DirMatcher] =
+proc beADir*(): tuple[val: bool, matcher: DirMatcher] =
   return (false, DirMatcher())
 
 ##################
@@ -316,7 +316,7 @@ method match(m: PrefixMatcher, expected, actual: string): bool =
 
   return expected.startsWith(actual)
 
-proc havePrefix(prefix: string): tuple[val: string, matcher: PrefixMatcher] =
+proc havePrefix*(prefix: string): tuple[val: string, matcher: PrefixMatcher] =
   return (prefix, PrefixMatcher())
 
 ##################
@@ -335,7 +335,7 @@ method match(m: SuffixMatcher, expected, actual: string): bool =
 
   return expected.endsWith(actual)
 
-proc haveSuffix(suffix: string): tuple[val: string, matcher: SuffixMatcher] =
+proc haveSuffix*(suffix: string): tuple[val: string, matcher: SuffixMatcher] =
   return (suffix, SuffixMatcher())
 
 ##################
@@ -354,7 +354,7 @@ method match[T](m: EmptyMatcher, expected: T, actual: bool): bool =
 
   return expected.len() < 1
 
-proc beEmpty(): tuple[val: bool, matcher: EmptyMatcher] =
+proc beEmpty*(): tuple[val: bool, matcher: EmptyMatcher] =
   return (false, EmptyMatcher())
 
 ##################
@@ -373,7 +373,7 @@ method match[T](m: LenMatcher, expected: T, actual: int): bool =
 
   return expected.len() == actual
 
-proc haveLen(length: int): tuple[val: int, matcher: LenMatcher] =
+proc haveLen*(length: int): tuple[val: int, matcher: LenMatcher] =
   return (length, LenMatcher())
 
 ##################
@@ -391,7 +391,7 @@ method match[A, B](m: KeyMatcher, expected: A, actual: B): bool =
     return false
   return expected.hasKey(actual)
 
-proc haveKey[T](key: T): tuple[val: T, matcher: KeyMatcher] =
+proc haveKey*[T](key: T): tuple[val: T, matcher: KeyMatcher] =
   return (key, KeyMatcher())
 
 ####################
@@ -412,7 +412,7 @@ method match[A, B, C](m: KeyValueMatcher, expected: A, actual: tuple[key: B, val
 
   return expected[actual.key] == actual.value
 
-proc haveKeyWithValue[A, B](key: A, value: B): tuple[val: tuple[key: A, value: B], matcher: KeyValueMatcher] =
+proc haveKeyWithValue*[A, B](key: A, value: B): tuple[val: tuple[key: A, value: B], matcher: KeyValueMatcher] =
   return ((key, value), KeyValueMatcher())
 
 #####################
@@ -442,42 +442,74 @@ method match[A, B](m: PropValueMatcher, expected: var A, actual: tuple[key: stri
   var propVal = a[actual.key]
   return propVal == valueA
 
-proc havePropValue[A](key: string, value: A): tuple[val: tuple[key: string, value: A], matcher: PropValueMatcher] =
+proc havePropValue*[A](key: string, value: A): tuple[val: tuple[key: string, value: A], matcher: PropValueMatcher] =
   return ((key, value), PropValueMatcher())
 
 ###################
 # Matching procs. #
 ###################
 
-proc macroBuilder(expected: NimNode, matchData: NimNode, reverse: bool = false): NimNode =
+proc macroBuilder(actual: NimNode, matchData: NimNode, reverse: bool = false): NimNode =
+  var lineinfo = actual.lineinfo()
+
   result = newStmtList()
 
   var body = newStmtList()
-  body.add(newVarStmt(ident"expected", expected))
+  body.add(newVarStmt(ident"actual", actual))
+  
   body.add(newVarStmt(ident"matchData", matchData))
-  body.add(newVarStmt(ident"reverse", if reverse: ident"true" else: ident"false"))
+  body.add(newVarStmt(ident"matcher", newDotExpr(ident"matchData", ident"matcher")))
+  body.add(newVarStmt(ident"value", newDotExpr(ident"matchData", ident"val")))
 
-  var lineinfo = expected.lineinfo()
-  var code = quote do:
-    var flag = matchData.matcher.match(expected, matchData.val)
-    if reverse: flag = not flag
-    if not flag:
-      var explanation = "to "
-      if reverse: explanation &= "not "
-      explanation &= matchData.matcher.explain()
-      raise newAlphaErr(expected, explanation, matchData.val, `lineinfo`) 
-  code.copyChildrenTo(body)
+  # Execute matcher and fill flag result variable.
+  body.add(newVarStmt(
+    ident"flag", 
+    newCall(
+      bindSym"match",
+      ident"matcher",
+      ident"actual",
+      ident"value"
+    )
+  ))
+  
+  # Reverse flag if neccessary.
+  if reverse:
+    body.add(
+      newAssignment(ident"flag", prefix(ident"flag", "not"))
+    )
+    
+  var explanation = "to "
+  if reverse:
+    explanation &= "not "
+  body.add(newVarStmt(
+    ident"explanation", newStrLitNode(explanation)  
+  ))
+  body.add(infix(
+    ident"explanation",
+    "&=",
+    newCall(bindSym"explain", ident"matcher")
+  ))
+
+
+  var raiseStmt = newNimNode(nnkRaiseStmt)
+  raiseStmt.add(newCall(
+    bindSym"newAlphaErr", 
+    ident"actual", 
+    ident"explanation", 
+    ident"value",
+    newStrLitNode(lineinfo)
+  ))
+  
+  body.add(newIfStmt(
+    (prefix(ident"flag", "not"), raiseStmt)
+  ))
 
   result.add(newBlockStmt(body))
 
-macro should(expected: expr, matchData: expr): stmt =
+macro should*(expected: expr, matchData: expr): stmt =
   macroBuilder(expected, matchData)
 
-macro shouldNot(expected: expr, matchData: expr): stmt =
+macro shouldNot*(expected: expr, matchData: expr): stmt =
   macroBuilder(expected, matchData, reverse = true)
-  
-type A = ref object of RootObj
-  key: string
-  
-var a = A(key: "val")
-a.should(havePropValue("key", "val"))
+
+#22.should(equal(22))
