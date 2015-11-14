@@ -2,3 +2,6 @@ nimcache/
 omega
 test
 test.nim
+tests
+cli
+.omega
