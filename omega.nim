@@ -3,8 +3,6 @@ from strutils import join, `%`, repeat, splitLines
 from times import epochTime
 import macros
 
-import alpha
-
 type
   SkipError = object of Exception
     discard
@@ -320,7 +318,7 @@ proc runSuite(this: Handler, suite: OmegaSuite): SuiteResult =
 
   return res
 
-proc run(this: Handler): OmegaResult =
+proc run*(this: Handler): OmegaResult =
   for r in this.reporters:
     r.onStart(this)
 
@@ -454,22 +452,24 @@ method onFinish(this: TerminalReporter, res: OmegaResult) =
 proc skip*(reason: string) =
   raise newException(SkipError, reason)
 
-template Suite(suiteName: string, body: stmt): stmt {.immediate, dirty.} =
+template Suite*(suiteName: string, body: stmt): stmt {.immediate, dirty.} =
+  bind OmegaSuite, OmegaDescription
   block:
     var suite = OmegaSuite(name: suiteName, descriptions: @[])
     omega.Omega.suites.add(suite)
     var parentDescription: OmegaDescription = nil
     body
 
-template setup(body: stmt): stmt {.immediate, dirty.} =
+template setup*(body: stmt): stmt {.immediate, dirty.} =
   suite.setup = proc() =
     body
 
-template teardown(body: stmt): stmt {.immediate, dirty.} =
+template teardown*(body: stmt): stmt {.immediate, dirty.} =
   suite.teardown = proc() =
     body
 
-template Describe(descName: string, body: stmt): stmt {.immediate, dirty.} =
+template Describe*(descName: string, body: stmt): stmt {.immediate, dirty.} =
+  bind OmegaDescription
   block:
     var description = OmegaDescription(name: descName, descriptions: @[], tests: @[])
     if parentDescription == nil:
@@ -482,15 +482,16 @@ template Describe(descName: string, body: stmt): stmt {.immediate, dirty.} =
 
     body
 
-template beforeEach(body: stmt): stmt {.immediate, dirty.} =
+template beforeEach*(body: stmt): stmt {.immediate, dirty.} =
   description.beforeEach = proc() =
     body
 
-template afterEach(body: stmt): stmt {.immediate, dirty.} =
+template afterEach*(body: stmt): stmt {.immediate, dirty.} =
   description.afterEach = proc() =
     body
 
-template It(testName: string, body: stmt): stmt {.immediate, dirty.} =
+template It*(testName: string, body: stmt): stmt {.immediate, dirty.} =
+  bind OmegaTest
   block:
     var test = OmegaTest(name: testName)
     test.test = proc() =
@@ -502,6 +503,8 @@ template It(testName: string, body: stmt): stmt {.immediate, dirty.} =
 var terminalReporter = TerminalReporter()
 var reporters: seq[Reporter] = @[cast[Reporter](terminalReporter)]
 var Omega* = Handler(suites: @[], randomizeSuites: true, runParallel: 3, reporters: reporters)
+proc run*() =
+  discard Omega.run()
 
 when isMainModule:
   Suite("TestSuite"):
@@ -568,5 +571,5 @@ when isMainModule:
         It("Should succeed"):
           discard
 
-  discard Omega.run()
+  discard omega.run()
   #res.repr.echo
