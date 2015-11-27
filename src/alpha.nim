@@ -1,5 +1,16 @@
-import typeinfo
-import typetraits
+###############################################################################
+##                                                                           ##
+##                              nim-alpha                                    ##
+##                                                                           ##
+##   (c) Christoph Herzog <chris@theduke.at> 2015                            ##
+##                                                                           ##
+##   This project is under the MIT license.                                  ##
+##   Check LICENSE.txt for details.                                          ##
+##                                                                           ##
+###############################################################################
+
+
+import typeinfo, typetraits
 import macros
 from strutils import `%`, startsWith, endsWith
 import sequtils
@@ -129,14 +140,22 @@ type AlphaError* = object of Exception
   lineinfo*: string
 
 proc newAlphaErr[A, B](actual: A, explanation: string, expected: B, lineinfo: string): ref AlphaError =
-  var actual = $actual
-  var expected = $expected
+  var actualRepr, expectedRepr = ""
+  when actual is string:
+    actualRepr = $actual
+  else:
+    actualRepr = repr(actual)
 
-  var msg = "Expected\n    $1\n$2\n    $3\n\n@$4" % [$actual, explanation, $expected, lineinfo]
+  when expected is string:
+    expectedRepr = $expected
+  else:
+    expectedRepr = repr(expected)
+
+  var msg = "Expected\n    $1\n$2\n    $3\n\n@$4" % [actualRepr, explanation, expectedRepr, lineinfo]
   var e = newException(AlphaError, msg)
-  e.actual = $actual
+  e.actual = actualRepr
   e.explanation = explanation
-  e.expected = $expected
+  e.expected = expectedRepr
   e.lineinfo = lineinfo
   return e
 
@@ -169,6 +188,26 @@ method match[A, B](m: EqualsMatcher, expected: A, actual: B): bool =
 proc equal*[T](val: T): tuple[val: T, matcher: EqualsMatcher] =
   return (val, EqualsMatcher(kind: "equals"))
 
+proc be*[T](val: T): tuple[val: T, matcher: EqualsMatcher] =
+  return (val, EqualsMatcher(kind: "equals"))
+
+################
+# BeOfMatcher. #
+################
+
+type BeOfMatcher = ref object of Matcher
+  discard
+
+method explain(m: BeOfMatcher): string = 
+  "be of "
+
+method match[A](m: BeOfMatcher, actual: A, expected: string): bool =
+  return name(type(actual)) == expected
+
+proc beOf*(val: typedesc): tuple[val: string, matcher: BeOfMatcher] =
+  return (name(val), BeOfMatcher())
+
+
 ####################
 # NilMatcher. #
 ####################
@@ -196,8 +235,13 @@ method explain(m: ZeroMatcher): string =
   "be zero"
 
 method match[A](m: ZeroMatcher, expected: A, actual: bool): bool =
-  var n = new(A)
-  return expected == n[]
+  when A is object or A is ref:
+    var n: A
+    discard new(n)
+    result = expected == n
+  else:
+    var n: A
+    result = expected == n
 
 proc beZero*(): tuple[val: bool, matcher: ZeroMatcher] =
   return (false, ZeroMatcher())
@@ -262,9 +306,11 @@ type FileMatcher = ref object of Matcher
 method explain(m: FileMatcher): string = 
   "be an existing file"
 
-method match(m: FileMatcher, expected: var string, actual: bool): bool =
+method match(m: FileMatcher, expected: string, actual: bool): bool =
   if expected == nil or expected == "":
     return false
+
+  var expected = expected
 
   try:
     expected = os.expandFilename(expected)
@@ -286,9 +332,10 @@ type DirMatcher = ref object of Matcher
 method explain(m: DirMatcher): string = 
   "be an existing directory"
 
-method match(m: DirMatcher, expected: var string, actual: bool): bool =
+method match(m: DirMatcher, expected: string, actual: bool): bool =
   if expected == nil or expected == "":
     return false
+  var expected = expected
 
   try:
     expected = os.expandFilename(expected)
@@ -425,7 +472,7 @@ type PropValueMatcher = ref object of Matcher
 method explain(m: PropValueMatcher): string = 
   "have property with value"
 
-method match[A, B](m: PropValueMatcher, expected: var A, actual: tuple[key: string, value: B]): bool =
+method match[A, B](m: PropValueMatcher, expected: A, actual: tuple[key: string, value: B]): bool =
   var a = toAny(expected)
   var value = actual.value
   var valueA = toAny(value)

@@ -5,8 +5,9 @@ author        = "Christoph Herzog"
 description   = "BDD testing framework."
 license       = "MIT"
 
-url           = "git://github.com/theduke/nim-omega/"
-website       = "https://github.com/theduke/nim-omega"
+srcDir        = "src"
+
+bin           = "omegacli"
 
 [Deps]
-Requires: "nim >= 0.10.0"
+Requires: "nim >= 0.10.0, commander >= 0.1"

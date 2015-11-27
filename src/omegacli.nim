@@ -1,9 +1,20 @@
+###############################################################################
+##                                                                           ##
+##                        nim-omega test framework                           ##
+##                                                                           ##
+##   (c) Christoph Herzog <chris@theduke.at> 2015                            ##
+##                                                                           ##
+##   This project is under the MIT license.                                  ##
+##   Check LICENSE.txt for details.                                          ##
+##                                                                           ##
+###############################################################################
+
 import tables
 import sequtils
 from oids import nil
 from os import nil
 from osproc import nil
-from strutils import repeat, `%`, endsWith, removeSuffix, contains
+from strutils import repeat, `%`, endsWith, removeSuffix, contains, startsWith, split
 import logging
 import commander
 from streams import readLine
@@ -54,35 +65,11 @@ proc buildFile(paths: openArray[string], targetPath: string) =
   if not open(buildFile, targetPath, fmWrite):
     raise newException(ValidationError, "Could not open file $1 for writing." % [targetPath])
 
-  buildFile.write("import alpha, omega\n")
+  buildFile.write("import omega\n\n")
 
   for filePath in paths:
     buildFile.write("#".repeat(80) & "\n# " & filePath & "\n" & "#".repeat(80) & "\n\n")
-
-    var lineIndex = 0
-    var isMainModule = false
-    for line in lines(filePath):
-      if line.string.contains("when isMainModule:"):
-        isMainModule = true
-        continue
-      if isMainModule:
-        if line.string.len() < 2 or line.string[0..1] == "  ":
-          continue
-        else:
-          isMainModule = false
-      if line.string.contains("omega.run"):
-        continue
-      if line.string.contains("import alpha"):
-        continue
-      if line.string.contains("import omega"):
-        continue
-      if line.string.contains("from alpha"):
-        continue
-      if line.string.contains("from omega"):
-        continue
-
-      lineIndex += 1
-      writeLine(buildFile, line & " #" % filePath & ":" & $lineIndex)
+    buildFile.write("import " & filePath)
     buildFile.write("\n\n")
 
   buildFile.write("omega.run()\n")
@@ -102,7 +89,8 @@ proc prepareRun(c: OmegaConfig) =
   # Ensure runDir exists.
   var runDir = c.runDir
   if runDir == "":
-    runDir = os.expandFilename("./.omega")
+
+    runDir = os.joinPath(os.getCurrentDir(), ".omega")
     if not os.dirExists(runDir):
       os.createDir(runDir)
 
@@ -111,7 +99,6 @@ proc prepareRun(c: OmegaConfig) =
     c.runId = $(countDirs(runDir) + 1)
 
   if c.debug: debug("Starting test with ID ", c.runId)
-
 
   # Determine and create the run directory.
   if c.runDir == "":

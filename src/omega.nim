@@ -1,3 +1,15 @@
+###############################################################################
+##                                                                           ##
+##                        nim-omega test framework                           ##
+##                                                                           ##
+##   (c) Christoph Herzog <chris@theduke.at> 2015                            ##
+##                                                                           ##
+##   This project is under the MIT license.                                  ##
+##   Check LICENSE.txt for details.                                          ##
+##                                                                           ##
+###############################################################################
+
+
 from terminal import nil
 from strutils import join, `%`, repeat, splitLines
 from times import epochTime
@@ -355,7 +367,9 @@ method onTestFinished(this: TerminalReporter, test: TestResult) =
 
   case test.status
   of SUCCESS:
-    terminal.styledEcho(terminal.fgGreen, "*")
+    terminal.setForegroundColor(stdout, terminal.fgGreen)
+    write(stdout, "*")
+    terminal.setForegroundColor(stdout, terminal.fgWhite)
 
   of SKIPPED:
     terminal.styledEcho(
@@ -504,12 +518,12 @@ template afterEach*(body: stmt): stmt {.immediate, dirty.} =
   description.afterEach = proc() =
     body
 
-template It*(testName: string, body: stmt): stmt {.immediate, dirty.} =
+template It*(testName: string, testBody: stmt): stmt {.immediate, dirty.} =
   bind OmegaTest
   block:
     var test = OmegaTest(name: testName)
     test.test = proc() =
-      body
+      testBody
     description.tests.add(test)
 
 # Omega handler.
