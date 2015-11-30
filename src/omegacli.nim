@@ -19,6 +19,8 @@ import logging
 import commander
 from streams import readLine
 
+from filemonitor import monitor_files
+
 
 type ValidationError = object of Exception
   discard
@@ -26,7 +28,7 @@ type ValidationError = object of Exception
 type OmegaConfig = ref object of RootObj
   debug: bool
   verbose: bool
-  parallel: bool 
+  parallel: bool
 
   nimCmdPath: string
 
@@ -79,7 +81,7 @@ proc prepareRun(c: OmegaConfig) =
   # Set up logging.
   var consoleL = logging.newConsoleLogger()
   logging.addHandler(consoleL)
-  
+
   # Find nim executable. 
   let nimCmdPath = os.findExe("nim")
   if nimCmdPath == "":
@@ -260,6 +262,13 @@ Commander:
     kind: STRING_VALUE
     multi: true
 
+  flag:
+    longName: "monitor"
+    shortName: "m"
+    description: "Monitor .nim files for change."
+    kind: STRING_VALUE
+    multi: true
+
   handle:
     var conf = newConfig()
     conf.debug = flags["debug"].boolVal
@@ -271,9 +280,16 @@ Commander:
       nimPaths.add(p.strVal)
     conf.nimPaths = nimPaths
 
-    try:
-      conf.run()
-    except:
-      error(getCurrentExceptionMsg())
+    conf.prepareRun()
+    while true:
+      try:
+        conf.compile()
+        conf.runTests()
+      except:
+        error(getCurrentExceptionMsg())
+
+      if monitor_files(flags["monitor"].values, conf.verbose) == false:
+        break
+
 
 cmdr.run()
